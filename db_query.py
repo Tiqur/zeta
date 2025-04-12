@@ -5,7 +5,7 @@ import argparse
 def connect_db():
     """Connect to the SQLite database"""
     try:
-        conn = sqlite3.connect('math_problems.db')
+        conn = sqlite3.connect('problems.db')
         conn.row_factory = sqlite3.Row  # This enables column access by name
         return conn
     except sqlite3.Error as e:

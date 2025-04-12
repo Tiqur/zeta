@@ -136,7 +136,7 @@ DO NOT include any text before or after the JSON object. The response should sta
 def generate_problems():
     """Generate math problems for all prompts and save them to SQLite database"""
     # Number of problems to generate per prompt
-    num_problems = 3
+    num_problems = 1
     num_recent_for_dedup = 15  # Number of recent problems to check for duplicates
     
     # Validate configuration
