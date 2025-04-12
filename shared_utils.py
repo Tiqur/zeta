@@ -83,15 +83,17 @@ def save_to_text(data, filename):
         print(f"Error saving text to {filename}: {str(e)}")
         return False
 
-# Function to load data from text file
-def load_from_text(filename):
+# Function to load data from JSON file
+def load_from_json(filename):
     try:
         if not os.path.exists(filename):
             print(f"ERROR: File not found: {filename}")
             return None
-            
+        
         with open(filename, 'r', encoding='utf-8') as f:
-            return [line.strip() for line in f if line.strip()]
+            data = json.load(f)
+            return data
     except Exception as e:
         print(f"Error loading data from {filename}: {str(e)}")
         return None
+
