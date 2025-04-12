@@ -25,11 +25,44 @@ You are an expert math content creator with deep reasoning capabilities. Given a
      - `"tags"`: an array of tags that describe this problem type
      - `"prompt"`: a **problem-generation prompt** for that type. This should be specific enough to generate good practice problems.
 
-4. **IMPORTANT**: Return your response as a well-formed JSON array of all problem types. Do not nest problem types within each other; provide a flat list of all problem types/subtypes.
+### IMPORTANT:
+Return your response as a well-formed JSON object with a single "problem_types" key containing an array of problem type objects.
 
-For example, if discussing Linear Equations, don't just have a single entry for "solving linear equations" - break it down into multiple entries like "solving one-step linear equations", "solving two-step linear equations", etc., each with their own specific problem-generation prompt.
+### Example format:
+{{
+  "problem_types": [
+    {{
+      "id": "linear_equations_single_variable",
+      "title": "Linear Equations (Single Variable)",
+      "topic": "Algebra 1",
+      "tags": ["linear equations", "one variable", "solving"],
+      "prompt": "Generate a problem that involves solving a linear equation with one variable. The equation should include integers or simple fractions, and the solution should be a single value."
+    }},
+    {{
+      "id": "linear_equations_multi_variable",
+      "title": "Linear Equations (Multi-variable)",
+      "topic": "Algebra 1",
+      "tags": ["linear equations", "two variables", "solving"],
+      "prompt": "Generate a problem that involves solving a system of linear equations with two variables. The equations should be solvable using either substitution or elimination methods."
+    }},
+    {{
+      "id": "factoring_quadratic_trinomial",
+      "title": "Factoring Quadratic Trinomials",
+      "topic": "Algebra 1",
+      "tags": ["factoring", "quadratic equations", "polynomials"],
+      "prompt": "Generate a problem where a quadratic trinomial needs to be factored. The equation should have integer coefficients and factor into two binomials."
+    }},
+    {{
+      "id": "systems_of_equations_substitution_method",
+      "title": "Solving Systems of Equations (Substitution Method)",
+      "topic": "Algebra 1",
+      "tags": ["systems of equations", "substitution", "solving"],
+      "prompt": "Generate a problem that requires solving a system of linear equations using the substitution method. The equations should be simple and solvable with integers."
+    }}
+  ]
+}}
 
-Please return your response as a well-formed JSON array and nothing else.
+Do not nest problem types within each other; provide a flat list of all problem types/subtypes.
 """
 
 # Main function
@@ -67,19 +100,31 @@ def generate_topic_breakdowns():
             response = call_deepseek_api(prompt, expect_json=True)
             
             try:
-                # Parse the JSON response
-                problem_types = response
-                if not isinstance(problem_types, list):
-                    print(f"  Warning: Expected list but got {type(problem_types)} for {topic_title}")
-                    continue
-                    
-                print(f"  Retrieved {len(problem_types)} problem types for {topic_title}")
+                # Parse JSON response
+                try:
+                    response_data = json.loads(response)
+                except:
+                    # If already parsed by API call
+                    response_data = response
                 
-                # Add to our master list
-                all_prompts.extend(problem_types)
+                # Check for expected format
+                if isinstance(response_data, dict) and "problem_types" in response_data:
+                    problem_types = response_data["problem_types"]
+                    if isinstance(problem_types, list):
+                        print(f"  Retrieved {len(problem_types)} problem types for {topic_title}")
+                        
+                        # Add to our master list
+                        all_prompts.extend(problem_types)
+                    else:
+                        print(f"  Error: 'problem_types' is not a list for {topic_title}")
+                else:
+                    print(f"  Error: Invalid response format for {topic_title}. Expected a JSON object with a 'problem_types' key.")
+                    if isinstance(response_data, dict):
+                        print(f"  Response keys: {list(response_data.keys())}")
                 
             except Exception as e:
                 print(f"  Error processing response for {topic_title}: {str(e)}")
+                print(f"  Raw response: {response[:100]}...")  # Show first 100 chars of response
         
         # Save all prompts to a single file
         prompts_filename = "prompts.json"
