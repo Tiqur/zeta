@@ -1,125 +1,85 @@
 import sys
 import json
-import re
-from shared_utils import validate_config, call_deepseek_api, save_to_json, load_from_json
+from shared_utils import validate_config, call_deepseek_api, save_to_json
 
-# Function to create a prompt for generating subtopics and problem prompts
-def create_topic_breakdown_prompt(topic_title, class_name):
-    # Create a snake_case ID from the topic title
-    topic_id = re.sub(r'[^a-zA-Z0-9\s]', '', topic_title).lower().replace(' ', '_')
-    
+def generate_topics_prompt(math_topic):
     return f"""
-You are an expert math content creator with deep reasoning capabilities. Given a topic from {class_name}, your task is to generate a comprehensive list of problem subtypes with associated problem-generation prompts.
+You are an expert math educator and curriculum designer. Given a class name (e.g., Algebra 1, Calculus 1, Linear Algebra), your task is to generate a **detailed, flat list** of all specific topics and subtopics typically covered in this course.
 
-### Topic to analyze: {topic_title}
+The class to analyze is: **{math_topic}**
 
 ### Instructions:
 
-1. **Reflect** on this topic and identify various **problem types** and **subtypes** within {topic_title}.
-2. For each problem type/subtype, create a **problem-generation prompt** that can be used to generate specific math problems.
-3. **Output format**:
-   - For each problem type, output a **JSON object** containing:
-     - `"id"`: a unique snake_case identifier (start with "{topic_id}_")
-     - `"title"`: a human-readable title (capitalized)
-     - `"topic"`: "{topic_title}"
-     - `"tags"`: an array of tags that describe this problem type
-     - `"prompt"`: a **problem-generation prompt** for that type. This should be specific enough to generate good practice problems.
+- Think deeply about every concept and skill taught in this class.
+- Break down every main topic into **granular, specific subtopics or problem types**.
+- The goal is to generate a flat, exhaustive list that could be used for generating individual math problems or flashcards.
+- Include specific techniques, problem types, representations, and variations.
+- List as many distinct items as possible.
+
+### Example (for Algebra 1):
+
+"Solving single-variable linear equations"  
+"Graphing linear equations in slope-intercept form"  
+"Solving absolute value equations"  
+"Solving linear inequalities with one variable"  
+"Graphing inequalities on a number line"  
+"Factoring trinomials"  
+"Solving quadratic equations by factoring"  
+"Solving quadratic equations with the quadratic formula"  
+"Completing the square"  
+"Solving systems of equations by substitution"  
+"Solving systems of equations by elimination"  
+"Solving word problems involving systems of equations"  
 
 ### IMPORTANT:
-Return your response as a well-formed JSON object with a single "problem_types" key containing an array of problem type objects. Format example:
+Return your response as a well-formed JSON object with a single "topics" key containing an array of topic strings. Format example:
 {{
-  "problem_types": [
-    {{
-      "id": "{topic_id}_example_1",
-      "title": "Example Problem Type 1",
-      "topic": "{topic_title}",
-      "tags": ["tag1", "tag2"],
-      "prompt": "Generate a problem about..."
-    }},
-    {{
-      "id": "{topic_id}_example_2",
-      "title": "Example Problem Type 2",
-      "topic": "{topic_title}",
-      "tags": ["tag1", "tag3"],
-      "prompt": "Create a problem where..."
-    }}
+  "topics": [
+    "Topic 1",
+    "Topic 2",
+    "Topic 3"
   ]
 }}
 
-Do not nest problem types within each other; provide a flat list of all problem types/subtypes.
+### Now begin:
+
+List of detailed topics for: **{math_topic}**
 """
 
 # Main function
-def generate_topic_breakdowns():
+def generate_math_topics():
     # Validate configuration
     math_topic = validate_config()
-    print(f"Processing topic breakdowns for: {math_topic}")
+    print(f"Generating topic list for: {math_topic}...")
     
     try:
-        # Load the topics file
-        topics_file = "topics.json"
-        topics_data = load_from_json(topics_file)
+        # Make API call for topic list (expecting JSON)
+        prompt = generate_topics_prompt(math_topic)
+        response = call_deepseek_api(prompt, expect_json=True)
         
-        if not topics_data or not isinstance(topics_data, dict) or "topics" not in topics_data:
-            print(f"ERROR: Topics file not found or invalid format: {topics_file}")
-            print("Please run generate_topics.py first to create the topics file.")
-            sys.exit(1)
-        
-        topics = topics_data["topics"]
-        print(f"Loaded {len(topics)} topics from {topics_file}")
-        
-        # Create a list to store all prompts
-        all_prompts = []
-        
-        # Process each topic
-        for i, topic_title in enumerate(topics, 1):
-            topic_id = re.sub(r'[^a-zA-Z0-9\s]', '', topic_title).lower().replace(' ', '_')
-            
-            print(f"Processing topic {i}/{len(topics)}: {topic_title}...")
-            
-            # Create the prompt for this topic
-            prompt = create_topic_breakdown_prompt(topic_title, math_topic)
-            
-            # Make API call for this topic (expecting JSON)
-            response = call_deepseek_api(prompt, expect_json=True)
-            
-            try:
-                # Parse JSON response
-                try:
-                    response_data = json.loads(response)
-                except:
-                    # If already parsed by API call
-                    response_data = response
+        # Parse JSON response
+        try:
+            topics_data = json.loads(response)
+            if isinstance(topics_data, dict) and "topics" in topics_data:
+                topics = topics_data["topics"]
+                print(f"Retrieved {len(topics)} main topics for {math_topic}")
                 
-                # Check for expected format
-                if isinstance(response_data, dict) and "problem_types" in response_data:
-                    problem_types = response_data["problem_types"]
-                    if isinstance(problem_types, list):
-                        print(f"  Retrieved {len(problem_types)} problem types for {topic_title}")
-                        
-                        # Add to our master list
-                        all_prompts.extend(problem_types)
-                    else:
-                        print(f"  Error: 'problem_types' is not a list for {topic_title}")
-                else:
-                    print(f"  Error: Invalid response format for {topic_title}. Expected a JSON object with a 'problem_types' key.")
-                    if isinstance(response_data, dict):
-                        print(f"  Response keys: {list(response_data.keys())}")
+                # Create a JSON file with the topics
+                filename = "topics.json"
                 
-            except Exception as e:
-                print(f"  Error processing response for {topic_title}: {str(e)}")
-                print(f"  Raw response: {response[:100]}...")  # Show first 100 chars of response
-        
-        # Save all prompts to a single file
-        prompts_filename = "prompts.json"
-        save_to_json(all_prompts, prompts_filename)
-        print(f"\nSuccessfully generated prompts for all topics.")
-        print(f"All results saved to {prompts_filename}")
-        
+                if save_to_json(topics_data, filename):
+                    print(f"Successfully generated topic list for {math_topic}.")
+                    print(f"Results saved to {filename}")
+            else:
+                print("Error: Invalid response format. Expected a JSON object with a 'topics' key.")
+        except Exception as e:
+            print(f"Error parsing response: {str(e)}")
+            print(f"Raw response: {response}")
+    
     except Exception as e:
         print(f"Error in main process: {str(e)}")
         sys.exit(1)
 
 # Run the program
 if __name__ == "__main__":
-    generate_topic_breakdowns()
+    generate_math_topics()
