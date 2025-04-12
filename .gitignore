@@ -175,4 +175,4 @@ cython_debug/
 
 prompts.json
 topics.json
-problems.json
+problems.db
